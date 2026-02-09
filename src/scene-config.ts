@@ -1,3 +1,5 @@
+import { Vec3 } from 'playcanvas';
+
 type Color = { r: number, g: number, b: number, a: number };
 
 const DEFAULT_BG_CLR: Color = { r: 0, g: 0, b: 0, a: 1 };
@@ -20,8 +22,8 @@ const sceneConfig = {
         overlay: false
     },
     show: {
-        grid: true,
-        bound: true,
+        grid: false,
+        bound: false,
         shBands: 3
     },
     controls: {
@@ -34,7 +36,10 @@ const sceneConfig = {
         initialElev: -10,
         initialZoom: 1.0,
         orbitSensitivity: 0.3,
-        zoomSensitivity: 0.4
+        zoomSensitivity: 0.4,
+        resetPosition: new Vec3(0, 0, 0),
+        resetTarget: new Vec3(0, 0, 0),
+        resetFlag: false
     },
     debug: {
         showBound: false

@@ -1,10 +1,19 @@
 @use 'colors.scss' as *;
 
-#bottom-toolbar {
+#bottom-toolbar-container {
     position: absolute;
+    right: 20px;
+    bottom: 20px;
+    width: 60px;
+    height: 60px;
+    pointer-events: none;
+}
+
+#bottom-toolbar {
+    position: fixed;
     left: 50%;
-    bottom: 24px;
-    height: 54px;
+    bottom: 0px;
+    height: 40px;
     transform: translate(-50%, 0);
     padding: 0px 8px;
     border-radius: 8px;
@@ -14,6 +23,58 @@
     display: flex;
     flex-direction: row;
     align-items: center;
+
+    z-index: 100;
+    pointer-events: auto;
+    transition: all 0.3s ease;
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+#bottom-toolbar.hidden {
+    opacity: 0;
+    transform: translate(-50%, 100%);
+    pointer-events: none;
+}
+
+#bottom-toolbar-toggle {
+    position: static;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: $bcg-primary;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+
+    z-index: 9999;
+    pointer-events: auto;
+
+    &:hover {
+        background-color: $clr-hilight;
+        transform: scale(1.1);
+    }
+
+    &.active {
+        background-color: $clr-hilight;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        transform: scale(1.05);
+    }
+
+    &.active svg {
+        color: $clr-active;
+        transform: rotate(180deg);
+    }
+
+    svg {
+        color: $clr-default;
+        width: 24px;
+        height: 24px;
+        transition: all 0.3s ease;
+    }
 }
 
 .bottom-toolbar-button, .bottom-toolbar-tool, .bottom-toolbar-toggle {

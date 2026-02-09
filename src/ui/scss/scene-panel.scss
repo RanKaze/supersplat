@@ -1,11 +1,13 @@
 #scene-panel {
-    top: 102px;
-    left: 24px;
+    top: 50%;
+    transform: translate(0, -50%);
+    right: 102px;
     width: 320px;
-}
+    flex-direction: column;
 
-.collapsed #scene-panel {
-    display: none;
+    &:not(.pcui-hidden) {
+        display: flex;
+    }
 }
 
 .splat-list-container {

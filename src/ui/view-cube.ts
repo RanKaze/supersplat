@@ -33,7 +33,7 @@ class ViewCube extends Container {
             circle.setAttribute('fill', fill ? color : '#222');
             circle.setAttribute('stroke', color);
             circle.setAttribute('stroke-width', '2');
-            circle.setAttribute('r', '10');
+            circle.setAttribute('r', '5');
             circle.setAttribute('cx', '0');
             circle.setAttribute('cy', '0');
             circle.setAttribute('pointer-events', 'all');
@@ -47,7 +47,7 @@ class ViewCube extends Container {
                 t.setAttribute('font-weight', 'bold');
                 t.setAttribute('text-anchor', 'middle');
                 t.setAttribute('alignment-baseline', 'central');
-                t.textContent = text;
+                // t.textContent = text;
                 result.appendChild(t);
             }
 

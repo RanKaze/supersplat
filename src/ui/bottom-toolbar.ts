@@ -4,6 +4,7 @@ import { Events } from '../events';
 import { ShortcutManager } from '../shortcut-manager';
 import { localize } from './localization';
 import redoSvg from './svg/redo.svg';
+import ringsSvg from './svg/rings.svg';
 import brushSvg from './svg/select-brush.svg';
 import eyedropperSvg from './svg/select-eyedropper.svg';
 import floodSvg from './svg/select-flood.svg';
@@ -241,4 +242,66 @@ class BottomToolbar extends Container {
     }
 }
 
-export { BottomToolbar };
+class BottomToolbarToggle extends Container {
+    private toggleButton: Element;
+    private toolbar: BottomToolbar;
+    private isActive: boolean = false;
+
+    constructor(events: Events, tooltips: Tooltips, args = {}) {
+        args = {
+            ...args,
+            id: 'bottom-toolbar-container'
+        };
+
+        super(args);
+
+        // Create toggle button
+        this.toggleButton = new Element({
+            id: 'bottom-toolbar-toggle',
+            class: ['bottom-toolbar-toggle']
+        });
+
+        this.toggleButton.dom.appendChild(createSvg(ringsSvg));
+
+        // Only use pointerdown event
+        this.toggleButton.dom.addEventListener('pointerdown', (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            this.toggleActive();
+            console.log('Toggle button pointerdown, isActive:', this.isActive);
+        });
+
+        // Create toolbar
+        this.toolbar = new BottomToolbar(events, tooltips);
+
+        this.append(this.toggleButton);
+        this.append(this.toolbar);
+
+        // Initially hide the toolbar
+        this.toolbar.dom.classList.add('hidden');
+
+        // Debug: Check if toggle button is in the DOM
+        console.log('Toggle button created:', this.toggleButton);
+        console.log('Toggle button dom:', this.toggleButton.dom);
+        console.log('Toggle button in DOM:', document.getElementById('bottom-toolbar-toggle'));
+
+        // Don't register tooltip for toggle button
+        // tooltips.register(this.toggleButton, localize('tooltip.bottom-toolbar.toggle'));
+    }
+
+    private toggleActive() {
+        this.isActive = !this.isActive;
+        if (this.isActive) {
+            this.toggleButton.dom.classList.add('active');
+            this.toolbar.dom.classList.remove('hidden');
+        } else {
+            this.toggleButton.dom.classList.remove('active');
+            this.toolbar.dom.classList.add('hidden');
+        }
+        console.log('Toggle active state:', this.isActive);
+        console.log('Toggle button classes:', this.toggleButton.dom.classList);
+        console.log('Toolbar classes:', this.toolbar.dom.classList);
+    }
+}
+
+export { BottomToolbarToggle as BottomToolbar };

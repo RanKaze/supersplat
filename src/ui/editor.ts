@@ -1,7 +1,7 @@
 import { Container, Label } from '@playcanvas/pcui';
 import { Mat4, path, Vec3 } from 'playcanvas';
 
-import { DataPanel } from './data-panel';
+// import { DataPanel } from './data-panel';
 import { Events } from '../events';
 import { AboutPopup } from './about-popup';
 import { BottomToolbar } from './bottom-toolbar';
@@ -10,7 +10,7 @@ import { ExportPopup } from './export-popup';
 import { ImageSettingsDialog } from './image-settings-dialog';
 import { localize, localizeInit } from './localization';
 import { Menu } from './menu';
-import { ModeToggle } from './mode-toggle';
+// import { ModeToggle } from './mode-toggle';
 import logo from './playcanvas-logo.png';
 import { Popup, ShowOptions } from './popup';
 import { Progress } from './progress';
@@ -19,9 +19,9 @@ import { RightToolbar } from './right-toolbar';
 import { ScenePanel } from './scene-panel';
 import { ShortcutsPopup } from './shortcuts-popup';
 import { Spinner } from './spinner';
-import { TimelinePanel } from './timeline-panel';
+// import { TimelinePanel } from './timeline-panel';
 import { Tooltips } from './tooltips';
-import { VideoSettingsDialog } from './video-settings-dialog';
+// import { VideoSettingsDialog } from './video-settings-dialog';
 import { ViewCube } from './view-cube';
 import { ViewPanel } from './view-panel';
 import { version } from '../../package.json';
@@ -73,10 +73,12 @@ class EditorUI {
         canvas.id = 'canvas';
 
         // app label
+        /*
         const appLabel = new Label({
             id: 'app-label',
             text: `SUPERSPLAT v${version}`
         });
+        */
 
         // cursor label
         const cursorLabel = new Label({
@@ -124,11 +126,11 @@ class EditorUI {
         const colorPanel = new ColorPanel(events, tooltips);
         const bottomToolbar = new BottomToolbar(events, tooltips);
         const rightToolbar = new RightToolbar(events, tooltips);
-        const modeToggle = new ModeToggle(events, tooltips);
+        // const modeToggle = new ModeToggle(events, tooltips);
         const menu = new Menu(events);
 
         canvasContainer.dom.appendChild(canvas);
-        canvasContainer.append(appLabel);
+        // canvasContainer.append(appLabel);
         canvasContainer.append(cursorLabel);
         canvasContainer.append(toolsContainer);
         canvasContainer.append(scenePanel);
@@ -136,8 +138,18 @@ class EditorUI {
         canvasContainer.append(colorPanel);
         canvasContainer.append(bottomToolbar);
         canvasContainer.append(rightToolbar);
-        canvasContainer.append(modeToggle);
+        // canvasContainer.append(modeToggle);
         canvasContainer.append(menu);
+
+        // Scene panel visibility
+        scenePanel.hidden = true;
+        events.on('scenePanel.toggleVisible', () => {
+            scenePanel.hidden = !scenePanel.hidden;
+            events.fire('scenePanel.visible', !scenePanel.hidden);
+        });
+        events.on('scenePanel.visible', (visible: boolean) => {
+            scenePanel.hidden = !visible;
+        });
 
         // view axes container
         const viewCube = new ViewCube(events);
@@ -151,12 +163,12 @@ class EditorUI {
             id: 'main-container'
         });
 
-        const timelinePanel = new TimelinePanel(events, tooltips);
-        const dataPanel = new DataPanel(events);
+        // const timelinePanel = new TimelinePanel(events, tooltips);
+        // const dataPanel = new DataPanel(events);
 
         mainContainer.append(canvasContainer);
-        mainContainer.append(timelinePanel);
-        mainContainer.append(dataPanel);
+        // mainContainer.append(timelinePanel);
+        // mainContainer.append(dataPanel);
 
         editorContainer.append(mainContainer);
 
@@ -178,7 +190,7 @@ class EditorUI {
         const imageSettingsDialog = new ImageSettingsDialog(events);
 
         // video settings
-        const videoSettingsDialog = new VideoSettingsDialog(events);
+        // const videoSettingsDialog = new VideoSettingsDialog(events);
 
         // about popup
         const aboutPopup = new AboutPopup();
@@ -187,7 +199,7 @@ class EditorUI {
         topContainer.append(exportPopup);
         topContainer.append(publishSettingsDialog);
         topContainer.append(imageSettingsDialog);
-        topContainer.append(videoSettingsDialog);
+        // topContainer.append(videoSettingsDialog);
         topContainer.append(shortcutsPopup);
         topContainer.append(aboutPopup);
 
@@ -242,6 +254,7 @@ class EditorUI {
             }
         });
 
+        /*
         events.function('show.videoSettingsDialog', async () => {
             const videoSettings = await videoSettingsDialog.show();
 
@@ -318,6 +331,7 @@ class EditorUI {
                 }
             }
         });
+        */
 
         events.on('show.about', () => {
             aboutPopup.hidden = false;

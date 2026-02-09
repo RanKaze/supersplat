@@ -1,7 +1,8 @@
 import { WebPCodec } from '@playcanvas/splat-transform';
-import { Color, createGraphicsDevice } from 'playcanvas';
+import { Color, createGraphicsDevice, Vec3 } from 'playcanvas';
 
 import { registerCameraPosesEvents } from './camera-poses';
+import { Capturer } from './capturer';
 import { registerDocEvents } from './doc';
 import { EditHistory } from './edit-history';
 import { registerEditorEvents } from './editor';
@@ -15,7 +16,7 @@ import { Scene } from './scene';
 import { getSceneConfig } from './scene-config';
 import { registerSelectionEvents } from './selection';
 import { ShortcutManager } from './shortcut-manager';
-import { registerTimelineEvents } from './timeline';
+// import { registerTimelineEvents } from './timeline';
 import { BoxSelection } from './tools/box-selection';
 import { BrushSelection } from './tools/brush-selection';
 import { EyedropperSelection } from './tools/eyedropper-selection';
@@ -32,6 +33,72 @@ import { ToolManager } from './tools/tool-manager';
 import { registerTransformHandlerEvents } from './transform-handler';
 import { EditorUI } from './ui/editor';
 import { localizeInit } from './ui/localization';
+
+/**
+ * Initialize camera position and rotation based on extrinsics and intrinsics
+ * @param extrinsics - Optional extrinsics data
+ * @param intrinsics - Optional intrinsics data
+ */
+function calculateCameraConfig(extrinsics?: any, intrinsics?: any) {
+    // Default camera position and target
+    const defaultPosition = new Vec3(0, 0, 5);
+    const defaultTarget = new Vec3(0, 0, 0);
+
+    let returnPosition = defaultPosition;
+    let returnTarget = defaultTarget;
+    if (extrinsics) {
+        try {
+            // Use extrinsics to set camera position and target
+            const position = new Vec3(
+                extrinsics[0][3] || 0,
+                extrinsics[1][3] || 0,
+                extrinsics[2][3] || 0
+            );
+            // Calculate target by moving forward from position
+            const forward = new Vec3(
+                extrinsics[0][2] || 0,
+                extrinsics[1][2] || 0,
+                extrinsics[2][2] || 0
+            );
+            const target = new Vec3().add2(position, forward);
+
+            // Set camera pose
+            if (window.scene.camera) {
+                returnPosition = position;
+                returnTarget = target;
+            }
+        } catch (error) {
+            // Use default position and target
+            if (window.scene.camera) {
+                returnPosition = defaultPosition;
+                returnTarget = defaultTarget;
+            }
+        }
+    } else {
+        // Use default position and target
+        if (window.scene.camera) {
+            returnPosition = defaultPosition;
+            returnTarget = defaultTarget;
+        }
+    }
+    return { position: returnPosition, target: returnTarget };
+}
+
+// 放在檔案開頭或工具函數區
+function parseBoolean(value: string) {
+    if (value === null || value === undefined) {
+        return false; // 預設值，也可以改成 true
+    }
+
+    const str = String(value).trim().toLowerCase();
+
+    // 常見的「真」表示方式
+    return str === 'true' ||
+           str === '1' ||
+           str === 'yes' ||
+           str === 'y' ||
+           str === 'on';
+}
 
 declare global {
     interface LaunchParams {
@@ -89,7 +156,7 @@ const main = async () => {
     WebPCodec.wasmUrl = new URL('static/lib/webp/webp.wasm', document.baseURI).toString();
 
     // register events that only need the events object (before UI is created)
-    registerTimelineEvents(events);
+    // registerTimelineEvents(events);
     registerCameraPosesEvents(events);
     registerTransformHandlerEvents(events);
     registerPlySequenceEvents(events);
@@ -243,6 +310,105 @@ const main = async () => {
     // load async models
     scene.start();
 
+    let capturer: Capturer = null;
+    const urlParams = new URLSearchParams(window.location.search);
+    const snapshot = parseBoolean(urlParams.get('snapshot'));
+    if (snapshot) {
+        const widthStr = urlParams.get('width');
+        const heightStr = urlParams.get('height');
+        const width = parseInt(widthStr, 10);
+        const height = parseInt(heightStr, 10);
+        capturer = new Capturer(editorUI.canvas, events, scene, width, height);
+        events.function('capturer', () => capturer);
+
+        const rawServerUrl = urlParams.get('server');
+        if (rawServerUrl) {
+            const serverUrl = decodeURIComponent(rawServerUrl);
+            const screenShotUrl = `${serverUrl}/screenshot`;
+            const windowCloseUrl = `${serverUrl}/window_closed`;
+            capturer.onScreenshot = (dataUrl: string) => {
+                fetch(screenShotUrl, {
+                    method: 'POST',
+                    mode: 'cors',               // 显式开启 CORS
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: dataUrl })
+                })
+                .then((response) => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    console.log('[SnapshotGaussian] Screenshot sent to server');
+                })
+                .catch((err) => {
+                    console.error('[SnapshotGaussian] Failed to send screenshot:', err);
+                });
+
+                // Close the window after a short delay
+                setTimeout(() => {
+                    window.close();
+                }, 500);
+            };
+
+            window.addEventListener('beforeunload', () => {
+                const data = JSON.stringify({ closed: true });
+                fetch(windowCloseUrl, {
+                    method: 'POST',
+                    mode: 'cors',               // 显式开启 CORS
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            });
+
+            // Add instructions text
+            const instructions = document.createElement('div');
+            instructions.className = 'instructions';
+            instructions.innerHTML = 'Press <strong>Enter</strong> to take snapshot and close window';
+            instructions.style.position = 'absolute';
+            instructions.style.bottom = '40px';
+            instructions.style.left = '50%';
+            instructions.style.transform = 'translateX(-50%)';
+            instructions.style.background = 'rgba(0, 0, 0, 0.7)';
+            instructions.style.color = 'white';
+            instructions.style.padding = '8px 16px';
+            instructions.style.borderRadius = '4px';
+            instructions.style.fontSize = '14px';
+            instructions.style.zIndex = '100';
+            instructions.style.textAlign = 'center';
+
+            const canvasContainer = editorUI.canvas.parentElement;
+            if (canvasContainer) {
+                canvasContainer.appendChild(instructions);
+            } else {
+                document.body.appendChild(instructions);
+            }
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    // 处理 enter 键按下事件
+                    capturer.screenshot();
+                }
+            });
+        }
+    }
+
+    {
+        const extrinsicsStr = urlParams.get('extrinsics');
+        const intrinsicsStr = urlParams.get('intrinsics');
+        let extrinsics = null;
+        let intrinsics = null;
+        try {
+            if (extrinsicsStr) extrinsics = JSON.parse(extrinsicsStr);
+            if (intrinsicsStr) intrinsics = JSON.parse(intrinsicsStr);
+        } catch (e) {
+            console.warn('Failed to parse extrinsics/intrinsics:', e);
+        }
+        const tempConfig = calculateCameraConfig(extrinsics, intrinsics);
+
+        scene.config.controls.resetPosition = tempConfig.position;
+        scene.config.controls.resetTarget = tempConfig.target;
+        scene.config.controls.resetFlag = true;
+
+        scene.camera.setPose(tempConfig.position, tempConfig.target);
+    }
+
     // handle load params
     const loadList = url.searchParams.getAll('load');
     const filenameList = url.searchParams.getAll('filename');
@@ -258,7 +424,6 @@ const main = async () => {
         }]);
     }
 
-
     // handle OS-based file association in PWA mode
     if ('launchQueue' in window) {
         window.launchQueue.setConsumer(async (launchParams: LaunchParams) => {
@@ -269,6 +434,44 @@ const main = async () => {
                 }]);
             }
         });
+    }
+
+    const rawServerUrl = urlParams.get('server');
+    if (rawServerUrl) {
+        const serverUrl = decodeURIComponent(rawServerUrl);
+        const apiUrl = `${serverUrl}/api/latest-upload`;
+
+        let hasLoaded = false;
+
+        const poll = async () => {
+            if (hasLoaded) return; // 安全兜底
+
+            try {
+                const res = await fetch(apiUrl);
+                if (!res.ok) throw new Error('HTTP error');
+
+                const data = await res.json();
+                if (!data.filename || !data.contents) {
+                    // 未就绪，稍后重试
+                    setTimeout(poll, 50); // 👈 关键：延迟后再次调用自己
+                    return;
+                }
+
+                hasLoaded = true;
+
+                const bin = atob(data.contents);
+                const arr = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; ++i) arr[i] = bin.charCodeAt(i);
+                const blob = new Blob([arr], { type: 'application/octet-stream' });
+                const file = new File([blob], data.filename);
+
+                await events.invoke('import', [{ filename: data.filename, contents: file }]);
+            } catch (e) {
+                setTimeout(poll, 50); // 出错也重试
+            }
+        };
+
+        poll(); // 启动
     }
 };
 

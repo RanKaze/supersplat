@@ -385,6 +385,12 @@ class PointerController {
 
         const wrap = (target: any, name: string, fn: any, options?: any) => {
             const callback = (event: any) => {
+                // Check if capturer is modifying (dragging or resizing)
+                const capturer = camera.scene.events.invoke('capturer');
+                if (capturer && capturer.isModifying) {
+                    return; // Don't process camera events if capturer is modifying
+                }
+                
                 camera.scene.events.fire('camera.controller', name);
                 fn(event);
             };
