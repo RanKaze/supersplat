@@ -336,15 +336,15 @@ const main = async () => {
                 .then((response) => {
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     console.log('[SnapshotGaussian] Screenshot sent to server');
+                    return response;
                 })
-                .catch((err) => {
-                    console.error('[SnapshotGaussian] Failed to send screenshot:', err);
+                .finally(() => {
+                    // 只有在网络请求完成后才关闭窗口
+                    console.log('[SnapshotGaussian] Screenshot request completed, closing window');
+                    setTimeout(() => {
+                        window.close();
+                    }, 500);
                 });
-
-                // Close the window after a short delay
-                setTimeout(() => {
-                    window.close();
-                }, 500);
             };
 
             window.addEventListener('beforeunload', () => {

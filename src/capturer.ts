@@ -789,8 +789,7 @@ class Capturer {
      */
     public async screenshot() {
         try {
-            const bgClr = this.events.invoke('bgClr');
-
+            const bgColor = this.events.invoke('bgClr');
             const width = this.canvas.width;
             const height = this.canvas.height;
 
@@ -812,9 +811,9 @@ class Capturer {
             this.scene.camera.startOffscreenMode(width, height);
             this.scene.camera.renderOverlays = false;
             this.scene.gizmoLayer.enabled = false;
-            const transparentBg = true;
+            const transparentBg = false;
             if (!transparentBg) {
-                this.scene.camera.clearPass.setClearColor(this.events.invoke('bgClr'));
+                this.scene.camera.clearPass.setClearColor(bgColor);
             }
 
             // render the next frame
@@ -835,6 +834,43 @@ class Capturer {
 
             // construct the png compressor
 
+            // 去掉 Alpha 通道，使用白色背景替换透明像素
+            const rgbData = new Uint8Array(safeWidth * safeHeight * 3);
+            let src = 0, dst = 0;
+
+            // 背景颜色（白色）
+            const bgR = bgColor.r * 255;
+            const bgG = bgColor.g * 255;
+            const bgB = bgColor.b * 255;
+
+            while (src < data.length) {
+                // data 格式为 RGBA
+                const r = data[src++];
+                const g = data[src++];
+                const b = data[src++];
+                const a = data[src++];
+
+                // Alpha 混合：将透明像素替换为背景颜色
+                if (a === 0) {
+                    // 完全透明，使用背景颜色
+                    rgbData[dst++] = bgR;
+                    rgbData[dst++] = bgG;
+                    rgbData[dst++] = bgB;
+                } else if (a === 255) {
+                    // 完全不透明，使用原始颜色
+                    rgbData[dst++] = r;
+                    rgbData[dst++] = g;
+                    rgbData[dst++] = b;
+                } else {
+                    // 半透明，使用 Alpha 混合公式
+                    const alpha = a / 255;
+                    const invAlpha = 1 - alpha;
+                    rgbData[dst++] = Math.round(r * alpha + bgR * invAlpha);
+                    rgbData[dst++] = Math.round(g * alpha + bgG * invAlpha);
+                    rgbData[dst++] = Math.round(b * alpha + bgB * invAlpha);
+                }
+            }
+
             const compressor = new PngCompressor();
 
             const arrayBuffer = await compressor.compress(
@@ -842,7 +878,6 @@ class Capturer {
                 safeWidth,
                 safeHeight
             );
-
 
             function arrayBufferToBase64(buffer : ArrayBuffer) {
                 let binary = '';
