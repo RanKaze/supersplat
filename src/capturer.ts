@@ -830,7 +830,10 @@ class Capturer {
             this.scene.dataProcessor.copyRt(mainTarget, workTarget);
 
             // read the rendered frame
-            await workTarget.colorBuffer.read(safeSourceX, safeSourceY, safeWidth, safeHeight, { renderTarget: workTarget, data });
+            // Flip Y for texture read on WebGL (texture origin is bottom-left)
+            const device = this.scene.graphicsDevice;
+            const texY = device.isWebGL2 ? workTarget.height - safeSourceY - safeHeight : safeSourceY;
+            await workTarget.colorBuffer.read(safeSourceX, texY, safeWidth, safeHeight, { renderTarget: workTarget, data });
 
             // construct the png compressor
 
