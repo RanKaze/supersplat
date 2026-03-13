@@ -22,8 +22,9 @@ const sceneConfig = {
         overlay: false
     },
     show: {
-        grid: false,
-        bound: false,
+        grid: true,
+        bound: true,
+        cameraPoses: false,
         shBands: 3
     },
     controls: {
@@ -38,8 +39,7 @@ const sceneConfig = {
         orbitSensitivity: 0.3,
         zoomSensitivity: 0.4,
         resetPosition: new Vec3(0, 0, 0),
-        resetTarget: new Vec3(0, 0, 0),
-        resetFlag: false
+        resetTarget: new Vec3(0, 0, 0)
     },
     debug: {
         showBound: false

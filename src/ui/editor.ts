@@ -20,6 +20,8 @@ import { ScenePanel } from './scene-panel';
 import { ShortcutsPopup } from './shortcuts-popup';
 import { Spinner } from './spinner';
 // import { TimelinePanel } from './timeline-panel';
+import { StatusBar } from './status-bar';
+import { TimelinePanel } from './timeline-panel';
 import { Tooltips } from './tooltips';
 // import { VideoSettingsDialog } from './video-settings-dialog';
 import { ViewCube } from './view-cube';
