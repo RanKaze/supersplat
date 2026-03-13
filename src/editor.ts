@@ -35,16 +35,16 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
     let lastExportCursor = 0;
 
     // add unsaved changes warning message.
-    window.addEventListener('beforeunload', (e) => {
-        if (!events.invoke('scene.dirty')) {
-            // if the undo cursor matches last export, then we have no unsaved changes
-            return undefined;
-        }
+    // window.addEventListener('beforeunload', (e) => {
+    //     if (!events.invoke('scene.dirty')) {
+    //         // if the undo cursor matches last export, then we have no unsaved changes
+    //         return undefined;
+    //     }
 
-        const msg = 'You have unsaved changes. Are you sure you want to leave?';
-        e.returnValue = msg;
-        return msg;
-    });
+    //     const msg = 'You have unsaved changes. Are you sure you want to leave?';
+    //     e.returnValue = msg;
+    //     return msg;
+    // });
 
     events.function('targetSize', () => {
         return scene.targetSize;
@@ -203,17 +203,7 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
     });
 
     events.on('camera.reset', () => {
-        if (scene.config.controls.resetFlag) {
-            const { initialAzim, initialElev, initialZoom } = scene.config.controls;
-            const x = Math.sin(initialAzim * Math.PI / 180) * Math.cos(initialElev * Math.PI / 180);
-            const y = -Math.sin(initialElev * Math.PI / 180);
-            const z = Math.cos(initialAzim * Math.PI / 180) * Math.cos(initialElev * Math.PI / 180);
-            const zoom = initialZoom;
-
-            scene.camera.setPose(new Vec3(x * zoom, y * zoom, z * zoom), new Vec3(0, 0, 0));
-        } else {
-            scene.camera.setPose(scene.config.controls.resetPosition, scene.config.controls.resetTarget);
-        }
+        scene.camera.setPose(scene.config.controls.resetPosition, scene.config.controls.resetTarget);
     });
 
     // handle camera align events

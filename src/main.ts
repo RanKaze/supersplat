@@ -37,8 +37,8 @@ import { localizeInit } from './ui/localization';
 
 /**
  * Initialize camera position and rotation based on extrinsics and intrinsics
- * @param extrinsics - Optional extrinsics data
- * @param intrinsics - Optional intrinsics data
+ * @param extrinsics - Optional extrinsics data (4x4 pose matrix)
+ * @param intrinsics - Optional intrinsics data (3x3 camera matrix K)
  */
 function calculateCameraConfig(extrinsics?: any, intrinsics?: any) {
     // Default camera position and target
@@ -47,42 +47,72 @@ function calculateCameraConfig(extrinsics?: any, intrinsics?: any) {
 
     let returnPosition = defaultPosition;
     let returnTarget = defaultTarget;
+    let fov = 75; // Default FOV in degrees
+
+    // Handle extrinsics (camera pose)
     if (extrinsics) {
         try {
-            // Use extrinsics to set camera position and target
+            if (extrinsics.length === 1) {
+                extrinsics = extrinsics[0];
+            }
+            // 从 4x4 外参矩阵中提取相机位置（第 4 列即为平移向量）
             const position = new Vec3(
-                extrinsics[0][3] || 0,
-                extrinsics[1][3] || 0,
-                extrinsics[2][3] || 0
+                extrinsics[0][3] || 0, // x 分量
+                extrinsics[1][3] || 0, // y 分量
+                extrinsics[2][3] || 0  // z 分量
             );
-            // Calculate target by moving forward from position
+            // 从 4x4 外参矩阵中提取相机朝向（第 3 列为 -Z 轴方向，即视线方向）
             const forward = new Vec3(
-                extrinsics[0][2] || 0,
-                extrinsics[1][2] || 0,
-                extrinsics[2][2] || 0
+                extrinsics[0][2] || 0, // 视线方向 x
+                extrinsics[1][2] || 0, // 视线方向 y
+                extrinsics[2][2] || 0  // 视线方向 z
             );
+            // 计算目标点：相机位置 + 视线方向，形成观察目标
             const target = new Vec3().add2(position, forward);
 
-            // Set camera pose
-            if (window.scene.camera) {
-                returnPosition = position;
-                returnTarget = target;
-            }
+            returnPosition = position;
+            returnTarget = target;
         } catch (error) {
-            // Use default position and target
-            if (window.scene.camera) {
-                returnPosition = defaultPosition;
-                returnTarget = defaultTarget;
-            }
-        }
-    } else {
-        // Use default position and target
-        if (window.scene.camera) {
-            returnPosition = defaultPosition;
-            returnTarget = defaultTarget;
+            console.warn('解析外参矩阵失败:', error);
         }
     }
-    return { position: returnPosition, target: returnTarget };
+
+    // Handle intrinsics (camera calibration)
+    if (intrinsics) {
+        try {
+            if (intrinsics.length === 1) {
+                intrinsics = intrinsics[0];
+            }
+            // Extract focal length from intrinsics matrix K
+            // K = [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]
+            const fx = intrinsics[0][0];
+            const fy = intrinsics[1][1];
+            const cx = intrinsics[0][2];
+            const cy = intrinsics[1][2];
+
+            // Calculate image dimensions based on principal points
+            // Assuming principal point is at center of image
+            // const width = Math.round(cx * 2);
+            // const height = Math.round(cy * 2);
+            const width = window.innerWidth;
+
+            // Calculate FOV based on focal length and image width
+            // FOV = 2 * arctan(width / (2 * fx)) * (180/π)
+            if (fx > 0 && width > 0) {
+                fov = 2 * Math.atan(width / (2 * fx)) * (180 / Math.PI);
+            }
+        } catch (error) {
+            console.warn('Failed to parse intrinsics:', error);
+        }
+    }
+
+    // Apply camera settings if scene is available
+    if (window.scene?.camera) {
+        window.scene.camera.fov = fov;
+        window.scene.camera.setPose(returnPosition, returnTarget);
+    }
+
+    return { fov, returnPosition, returnTarget };
 }
 
 // 放在檔案開頭或工具函數區
@@ -186,8 +216,29 @@ const main = async () => {
         getURLArgs()
     ];
 
+    const urlParams = new URLSearchParams(window.location.search);
     // resolve scene config
     const sceneConfig = getSceneConfig(overrides);
+    sceneConfig.show.grid = false;
+    sceneConfig.show.bound = false;
+
+    {
+        const extrinsicsStr = urlParams.get('extrinsics');
+        const intrinsicsStr = urlParams.get('intrinsics');
+        let extrinsics = null;
+        let intrinsics = null;
+        try {
+            if (extrinsicsStr) extrinsics = JSON.parse(extrinsicsStr);
+            if (intrinsicsStr) intrinsics = JSON.parse(intrinsicsStr);
+        } catch (e) {
+            console.warn('Failed to parse extrinsics/intrinsics:', e);
+        }
+
+        const { fov, returnPosition, returnTarget } = calculateCameraConfig(extrinsics, intrinsics);
+        sceneConfig.camera.fov = fov;
+        sceneConfig.controls.resetPosition = returnPosition;
+        sceneConfig.controls.resetTarget = returnTarget;
+    }
 
     // construct the manager
     const scene = new Scene(
@@ -313,7 +364,7 @@ const main = async () => {
     scene.start();
 
     let capturer: Capturer = null;
-    const urlParams = new URLSearchParams(window.location.search);
+
     const snapshot = parseBoolean(urlParams.get('snapshot'));
     if (snapshot) {
         const widthStr = urlParams.get('width');
@@ -339,6 +390,34 @@ const main = async () => {
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     console.log('[SnapshotGaussian] Screenshot sent to server');
                     return response;
+                })
+                .then(() => {
+                    // 获取相机的世界变换矩阵 (4x4)
+                    const worldTransform = scene.camera.worldTransform;
+                    // 提取矩阵数据为 4x4 数组格式
+                    const matrix = [
+                        [-worldTransform.data[0], -worldTransform.data[4], -worldTransform.data[8], -worldTransform.data[12]],
+                        [worldTransform.data[1], worldTransform.data[5], worldTransform.data[9], worldTransform.data[13]],
+                        [-worldTransform.data[2], -worldTransform.data[6], -worldTransform.data[10], -worldTransform.data[14]],
+                        [worldTransform.data[3], worldTransform.data[7], worldTransform.data[11], worldTransform.data[15]]
+                    ];
+                    const extrinsics = btoa(JSON.stringify(matrix));
+                    return fetch(`${serverUrl}/extrinsics`, {
+                        method: 'POST',
+                        mode: 'cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ extrinsics })
+                    });
+                })
+                .then((response) => {
+                    if (response && !response.ok) throw new Error(`HTTP ${response.status}`);
+                    if (response) {
+                        console.log('[SnapshotGaussian] Camera extrinsics sent to server');
+                    }
+                    return response;
+                })
+                .catch((error) => {
+                    console.error('[SnapshotGaussian] Error during screenshot process:', error);
                 })
                 .finally(() => {
                     // 只有在网络请求完成后才关闭窗口
@@ -391,25 +470,7 @@ const main = async () => {
         }
     }
 
-    {
-        const extrinsicsStr = urlParams.get('extrinsics');
-        const intrinsicsStr = urlParams.get('intrinsics');
-        let extrinsics = null;
-        let intrinsics = null;
-        try {
-            if (extrinsicsStr) extrinsics = JSON.parse(extrinsicsStr);
-            if (intrinsicsStr) intrinsics = JSON.parse(intrinsicsStr);
-        } catch (e) {
-            console.warn('Failed to parse extrinsics/intrinsics:', e);
-        }
-        const tempConfig = calculateCameraConfig(extrinsics, intrinsics);
-
-        scene.config.controls.resetPosition = tempConfig.position;
-        scene.config.controls.resetTarget = tempConfig.target;
-        scene.config.controls.resetFlag = true;
-
-        scene.camera.setPose(tempConfig.position, tempConfig.target);
-    }
+    scene.camera.setPose(sceneConfig.controls.resetPosition, sceneConfig.controls.resetTarget);
 
     // handle load params
     const loadList = url.searchParams.getAll('load');
